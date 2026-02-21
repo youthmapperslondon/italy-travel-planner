@@ -1,6 +1,8 @@
 /**
  * GOOGLE MAPS FRONTEND INTEGRATION
- * Fixed to handle multiple map instances on the same page
+ * Uses standard Google Maps JavaScript API with API key from environment variable.
+ * Set VITE_GOOGLE_MAPS_API_KEY in your .env or Netlify environment variables.
+ * Falls back to Manus proxy if no API key is set (for local development).
  */
 
 /// <reference types="@types/google.maps" />
@@ -16,11 +18,23 @@ declare global {
   }
 }
 
-const API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
+// Use standard Google Maps API key if available, otherwise fall back to Manus proxy
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const FORGE_API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
 const FORGE_BASE_URL =
   import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
   "https://forge.butterfly-effect.dev";
-const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
+
+function getScriptUrl(): string {
+  const libraries = "marker,places,geocoding,geometry";
+  if (GOOGLE_MAPS_API_KEY) {
+    // Standard Google Maps API — works on any domain
+    return `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&v=weekly&libraries=${libraries}`;
+  }
+  // Fallback to Manus proxy for local development
+  const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
+  return `${MAPS_PROXY_URL}/maps/api/js?key=${FORGE_API_KEY}&v=weekly&libraries=${libraries}`;
+}
 
 function loadMapScript(): Promise<void> {
   // If already loaded, resolve immediately
@@ -34,7 +48,7 @@ function loadMapScript(): Promise<void> {
   // Start loading
   window._mapsLoading = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
+    script.src = getScriptUrl();
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
