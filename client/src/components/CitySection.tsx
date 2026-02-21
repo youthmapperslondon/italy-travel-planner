@@ -16,9 +16,9 @@ interface CitySectionProps {
 
 const FILTER_GROUPS = [
   { label: "All", value: "all" as const },
-  { label: "Restaurants", values: ["restaurant", "steak", "seafood", "pasta", "pizza", "truffle", "risotto", "panzerotti"] },
-  { label: "Drinks & Sweets", values: ["gelato", "pastry", "aperitivo", "cocktail", "coffee", "chocolate"] },
-  { label: "Explore", values: ["attraction", "park", "neighborhood"] },
+  { label: "Restaurants", values: ["restaurant", "steak", "seafood", "pasta", "pizza", "truffle", "risotto", "panzerotti", "bakery"] },
+  { label: "Drinks & Sweets", values: ["gelato", "pastry", "aperitivo", "cocktail", "coffee", "chocolate", "bar"] },
+  { label: "Explore", values: ["attraction", "park", "neighborhood", "church", "daytrip"] },
 ];
 
 export function CitySection({ city }: CitySectionProps) {

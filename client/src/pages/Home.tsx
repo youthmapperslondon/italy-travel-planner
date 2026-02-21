@@ -225,7 +225,7 @@ export default function Home() {
                     {city.name}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {city.places.filter(p => !["attraction", "park", "neighborhood"].includes(p.category)).length} food spots · {city.places.filter(p => ["attraction", "park", "neighborhood"].includes(p.category)).length} things to do
+                    {city.places.filter(p => !["attraction", "park", "neighborhood", "church", "daytrip"].includes(p.category)).length} food spots · {city.places.filter(p => ["attraction", "park", "neighborhood", "church", "daytrip"].includes(p.category)).length} things to do
                   </p>
                 </motion.button>
               ))}
