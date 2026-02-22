@@ -50,22 +50,36 @@ export function CitySection({ city }: CitySectionProps) {
       const customIcon = L.divIcon({
         className: "custom-leaflet-marker",
         html: `<div style="
-          background: ${isActive ? '#c75c2a' : '#1a1a1a'};
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
-          font-family: 'DM Sans', sans-serif;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          white-space: nowrap;
-          cursor: pointer;
-          transition: all 0.2s;
+          position: relative;
           transform: translate(-50%, -100%);
-        "><span>${icon}</span><span>${place.name}</span></div>`,
+        ">
+          <div style="
+            background: ${isActive ? '#c75c2a' : '#1a1a1a'};
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
+            border: 2px solid ${isActive ? '#e8845a' : 'rgba(255,255,255,0.25)'};
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.02em;
+          "><span style="font-size:16px;line-height:1;">${icon}</span><span style="text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${place.name}</span></div>
+          <div style="
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid ${isActive ? '#c75c2a' : '#1a1a1a'};
+            margin: -1px auto 0;
+          "></div>
+        </div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
