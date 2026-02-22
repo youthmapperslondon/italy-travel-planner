@@ -1,119 +1,78 @@
 /**
- * GOOGLE MAPS FRONTEND INTEGRATION
- * Uses standard Google Maps JavaScript API with API key from environment variable.
- * Set VITE_GOOGLE_MAPS_API_KEY in your .env or Netlify environment variables.
- * Falls back to Manus proxy if no API key is set (for local development).
+ * LEAFLET MAP INTEGRATION
+ * Uses Leaflet + Carto basemap tiles (free, no API key required).
+ * Works on any domain including Netlify.
  */
 
-/// <reference types="@types/google.maps" />
-
-import { useEffect, useRef } from "react";
-import { usePersistFn } from "@/hooks/usePersistFn";
+import { useEffect, useRef, useCallback } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 
-declare global {
-  interface Window {
-    google?: typeof google;
-    _mapsLoading?: Promise<void>;
-  }
-}
+// Fix default marker icon issue in Leaflet with bundlers
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
-// Use standard Google Maps API key if available, otherwise fall back to Manus proxy
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const FORGE_API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const FORGE_BASE_URL =
-  import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
-  "https://forge.butterfly-effect.dev";
-
-function getScriptUrl(): string {
-  const libraries = "marker,places,geocoding,geometry";
-  if (GOOGLE_MAPS_API_KEY) {
-    // Standard Google Maps API — works on any domain
-    return `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&v=weekly&libraries=${libraries}`;
-  }
-  // Fallback to Manus proxy for local development
-  const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
-  return `${MAPS_PROXY_URL}/maps/api/js?key=${FORGE_API_KEY}&v=weekly&libraries=${libraries}`;
-}
-
-function loadMapScript(): Promise<void> {
-  // If already loaded, resolve immediately
-  if (window.google?.maps) {
-    return Promise.resolve();
-  }
-  // If currently loading, return the existing promise
-  if (window._mapsLoading) {
-    return window._mapsLoading;
-  }
-  // Start loading
-  window._mapsLoading = new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = getScriptUrl();
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.onload = () => {
-      resolve();
-    };
-    script.onerror = () => {
-      window._mapsLoading = undefined;
-      reject(new Error("Failed to load Google Maps script"));
-    };
-    document.head.appendChild(script);
-  });
-  return window._mapsLoading;
-}
-
-interface MapViewProps {
+interface LeafletMapProps {
   className?: string;
-  initialCenter?: google.maps.LatLngLiteral;
+  initialCenter?: [number, number];
   initialZoom?: number;
-  onMapReady?: (map: google.maps.Map) => void;
+  onMapReady?: (map: L.Map) => void;
 }
 
-export function MapView({
+export function LeafletMap({
   className,
-  initialCenter = { lat: 37.7749, lng: -122.4194 },
+  initialCenter = [45.4642, 9.1900],
   initialZoom = 12,
   onMapReady,
-}: MapViewProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<google.maps.Map | null>(null);
+}: LeafletMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
 
-  const init = usePersistFn(async () => {
-    try {
-      await loadMapScript();
-    } catch (e) {
-      console.error("Map script load error:", e);
-      return;
-    }
-    if (!mapContainer.current || map.current) return;
-    
-    map.current = new window.google!.maps.Map(mapContainer.current, {
-      zoom: initialZoom,
+  const init = useCallback(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = L.map(containerRef.current, {
       center: initialCenter,
-      mapTypeControl: false,
-      fullscreenControl: true,
+      zoom: initialZoom,
       zoomControl: true,
-      streetViewControl: false,
-      mapId: "DEMO_MAP_ID",
-      styles: [
-        {
-          featureType: "poi",
-          elementType: "labels",
-          stylers: [{ visibility: "off" }],
-        },
-      ],
+      attributionControl: true,
     });
+
+    // Carto Voyager basemap — clean, modern, free
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19,
+    }).addTo(map);
+
+    mapRef.current = map;
+
+    // Fix tile rendering after container becomes visible
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
     if (onMapReady) {
-      onMapReady(map.current);
+      onMapReady(map);
     }
-  });
+  }, [initialCenter, initialZoom, onMapReady]);
 
   useEffect(() => {
     init();
-  }, [init]);
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
+    <div ref={containerRef} className={cn("w-full h-[500px]", className)} />
   );
 }

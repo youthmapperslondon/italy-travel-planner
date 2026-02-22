@@ -1,14 +1,15 @@
 /*
  * VIAGGIO MODERNO — Contemporary Italian Editorial
- * CitySection: Full city section with hero, map, and categorized places
+ * CitySection: Full city section with hero, Leaflet map, and categorized places
  */
 
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { type CityData, type Place, type PlaceCategory, categoryIcons } from "@/data/travelData";
+import { type CityData, type Place, type PlaceCategory, categoryIcons, categoryColors } from "@/data/travelData";
 import { PlaceCard } from "./PlaceCard";
-import { MapView } from "./Map";
+import { LeafletMap } from "./Map";
 import { motion } from "framer-motion";
 import { MapPin, Filter, X } from "lucide-react";
+import L from "leaflet";
 
 interface CitySectionProps {
   city: CityData;
@@ -24,8 +25,8 @@ const FILTER_GROUPS = [
 export function CitySection({ city }: CitySectionProps) {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [activePlace, setActivePlace] = useState<string | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
 
   const filteredPlaces = useMemo(() => {
     if (activeFilter === "all") return city.places;
@@ -35,46 +36,44 @@ export function CitySection({ city }: CitySectionProps) {
     return city.places.filter(p => vals.includes(p.category));
   }, [city.places, activeFilter]);
 
-  const categories = useMemo(() => {
-    const cats = new Set(filteredPlaces.map(p => p.category));
-    return Array.from(cats);
-  }, [filteredPlaces]);
-
   const clearMarkers = useCallback(() => {
-    markersRef.current.forEach(m => { m.map = null; });
+    markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
   }, []);
 
-  const addMarkers = useCallback((map: google.maps.Map, places: Place[]) => {
+  const addMarkers = useCallback((map: L.Map, places: Place[], currentActivePlace: string | null) => {
     clearMarkers();
     places.forEach(place => {
       const icon = categoryIcons[place.category] || "📍";
-      const pinEl = document.createElement("div");
-      pinEl.innerHTML = `<div style="
-        background: ${place.id === activePlace ? '#c75c2a' : '#1a1a1a'};
-        color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 13px;
-        font-weight: 500;
-        font-family: 'DM Sans', sans-serif;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
-        cursor: pointer;
-        transition: all 0.2s;
-      "><span>${icon}</span><span>${place.name}</span></div>`;
+      const isActive = place.id === currentActivePlace;
 
-      const marker = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: { lat: place.lat, lng: place.lng },
-        content: pinEl,
-        title: place.name,
+      const customIcon = L.divIcon({
+        className: "custom-leaflet-marker",
+        html: `<div style="
+          background: ${isActive ? '#c75c2a' : '#1a1a1a'};
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          font-family: 'DM Sans', sans-serif;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: all 0.2s;
+          transform: translate(-50%, -100%);
+        "><span>${icon}</span><span>${place.name}</span></div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
       });
 
-      marker.addListener("click", () => {
+      const marker = L.marker([place.lat, place.lng], { icon: customIcon })
+        .addTo(map);
+
+      marker.on("click", () => {
         setActivePlace(place.id);
         const el = document.getElementById(`place-${place.id}`);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -82,25 +81,24 @@ export function CitySection({ city }: CitySectionProps) {
 
       markersRef.current.push(marker);
     });
-  }, [activePlace, clearMarkers]);
+  }, [clearMarkers]);
 
-  const handleMapReady = useCallback((map: google.maps.Map) => {
+  const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
-    addMarkers(map, filteredPlaces);
-  }, [addMarkers, filteredPlaces]);
+    addMarkers(map, filteredPlaces, activePlace);
+  }, [addMarkers, filteredPlaces, activePlace]);
 
-  // Update markers when filter changes
+  // Update markers when filter or activePlace changes
   useEffect(() => {
     if (mapRef.current) {
-      addMarkers(mapRef.current, filteredPlaces);
+      addMarkers(mapRef.current, filteredPlaces, activePlace);
     }
-  }, [filteredPlaces, addMarkers]);
+  }, [filteredPlaces, activePlace, addMarkers]);
 
   const handlePlaceClick = useCallback((place: Place) => {
     setActivePlace(place.id);
     if (mapRef.current) {
-      mapRef.current.panTo({ lat: place.lat, lng: place.lng });
-      mapRef.current.setZoom(16);
+      mapRef.current.flyTo([place.lat, place.lng], 16, { duration: 0.8 });
     }
   }, []);
 
@@ -174,8 +172,8 @@ export function CitySection({ city }: CitySectionProps) {
           {/* Map */}
           <div className="lg:col-span-3 mb-8 lg:mb-0">
             <div className="sticky top-32 rounded-sm overflow-hidden border border-border shadow-sm">
-              <MapView
-                initialCenter={city.mapCenter}
+              <LeafletMap
+                initialCenter={[city.mapCenter.lat, city.mapCenter.lng]}
                 initialZoom={city.mapZoom}
                 onMapReady={handleMapReady}
                 className="h-[400px] lg:h-[600px]"
